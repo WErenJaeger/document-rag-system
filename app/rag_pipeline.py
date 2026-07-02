@@ -1,4 +1,5 @@
 import os
+import mlflow
 from pypdf import PdfReader
 from sentence_transformers import SentenceTransformer
 import chromadb
@@ -6,9 +7,18 @@ import google.generativeai as genai
 
 EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 
+mlflow.set_experiment("docuquery-rag")
+
 class DocumentRAGPipeline:
     def __init__(self, chroma_path="app/chroma_db", google_api_key=None):
         print("Loading embedding model...")
+        
+        with mlflow.start_run(run_name="pipeline-init"):
+            mlflow.log_param("embedding_model", EMBEDDING_MODEL)
+            mlflow.log_param("llm_model", "gemini-2.5-flash-lite")
+            mlflow.log_param("chroma_path", chroma_path)
+            mlflow.set_tag("version", "1.0.0")
+        
         self.embedder = SentenceTransformer(EMBEDDING_MODEL)
         
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
@@ -55,6 +65,12 @@ class DocumentRAGPipeline:
             documents=chunks,
             metadatas=metadatas
         )
+        
+        with mlflow.start_run(run_name=f"ingest-{doc_id}"):
+            mlflow.log_param("doc_id", doc_id)
+            mlflow.log_metric("chunks_ingested", len(chunks))
+            mlflow.log_metric("text_length", len(text))
+        
         print(f"Ingested {len(chunks)} chunks from {doc_id}")
         return len(chunks)
 
@@ -81,8 +97,16 @@ Question: {question}
 Answer:"""
 
         response = self.model.generate_content(prompt)
+        answer = response.text
+        
+        with mlflow.start_run(run_name="query"):
+            mlflow.log_param("question_length", len(question))
+            mlflow.log_param("top_k", top_k)
+            mlflow.log_metric("context_chunks", len(chunks))
+            mlflow.log_metric("answer_length", len(answer))
+            mlflow.set_tag("sources", str([m["source"] for m in metadatas]))
 
         return {
-            "answer": response.text,
+            "answer": answer,
             "sources": [m["source"] for m in metadatas]
         }

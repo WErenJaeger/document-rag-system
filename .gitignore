@@ -1,0 +1,26 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# ChromaDB (local vector store, repo'ya girmemeli)
+app/chroma_db/
+
+# Uploaded docs (kullanıcı verileri)
+app/data/uploaded_docs/
+
+# Model cache (büyük dosyalar)
+.cache/
+*.bin
+*.safetensors
+
+# Font dosyası
+DejaVuSans.ttf
+
+# OS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
